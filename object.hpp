@@ -183,9 +183,15 @@ public:
         for (int i = 0; i < Dim; ++i) this->coord[i] = coord[i];
     }
 
-    /* dominate test */
+    /* dominate test for loop based algorithm */
     bool Dominates(const InstanceBase& instance) const {
         for (int i = 0; i < Dim; ++ i) if (coord[i] > instance.coord[i]) return false;
+        return true;
+    }
+
+    /* dominate test for transform based algorithm */
+    bool Dominates(const int& dim, const double *other) {
+        for (int i = 0; i < dim; ++ i) if (coord[i] > other[i]) return false;
         return true;
     }
 
