@@ -34,6 +34,16 @@ public:
         left_bottom = right_top = nullptr;
     }
 
+    HyperBox(const int& d, double* coord) {
+        this->d = d;
+        this->left_bottom = new double[d];
+        this->right_top = new double[d];
+        for (int i = 0; i < d; ++ i) {
+            this->left_bottom[i] = coord[i];
+            this->right_top[i] = coord[i];
+        }
+    }
+
     HyperBox(const int& d, double* left_bottom, double* right_top) {
         this->d = d;
         this->left_bottom = new double[d];
