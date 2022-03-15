@@ -43,12 +43,6 @@ public:
             this->right_top[i] = right_top[i];
         }
     }
-    
-    ~HyperBox() {
-        delete[] left_bottom;
-        delete[] right_top;
-        left_bottom = right_top = nullptr;
-    }
 
     /* return centroid of the box */
     double* GetCentroid() const {
@@ -136,11 +130,11 @@ public:
     }
 
     /* true : right_top R-dominates instance */
-    bool RDominates(const InstanceBase& instance, const HyperBox& box) const {
-        double sum = instance.coord[Dim - 1] - right_top[Dim - 1];
+    bool RDominates(const double* coord, const HyperBox& box) const {
+        double sum = coord[Dim - 1] - right_top[Dim - 1];
         for (int i = 0; i < Dim - 1; ++ i) {
-            if (instance.coord[i] - right_top[i] > 0) sum += (instance.coord[i] - right_top[i])*box.left_bottom[i];
-            else sum += (instance.coord[i] - right_top[i])*box.right_top[i];
+            if (coord[i] - right_top[i] > 0) sum += (coord[i] - right_top[i])*box.left_bottom[i];
+            else sum += (coord[i] - right_top[i])*box.right_top[i];
         }
         return sum >= 0;
     }
@@ -179,11 +173,6 @@ public:
         for (int i = 0; i < Dim; ++i) this->coord[i] = coord[i];
     }
 
-    virtual ~InstanceBase() {
-        if (coord != nullptr) delete[] coord;
-        coord = nullptr;
-    }
-
     /* dominate test */
     bool Dominates(const InstanceBase& instance) const {
         for (int i = 0; i < Dim; ++ i) if (coord[i] > instance.coord[i]) return false;
@@ -217,11 +206,6 @@ public:
         this->cnt = cnt;
         this->ins_cnt = new int[m];
         dataset.resize(m);
-    }
-
-    ~DataOperator() {
-        delete[] ins_cnt;
-        for (auto iter : dataset) if (iter != nullptr) { delete[] iter; iter = nullptr; }
     }
 
     void PrintData() {
@@ -398,7 +382,7 @@ private:
         return ins_cnt;
     }
 };
-
+/*
 int main(int argc, char const *argv[]) {
     DataOperator data_operator(10, 10);
     // data_operator.GenData(1);
@@ -407,6 +391,6 @@ int main(int argc, char const *argv[]) {
     // data_operator.WriteData(argv[1]);
     return 0;
 }
-
+*/
 
 #endif
