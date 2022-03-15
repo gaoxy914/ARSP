@@ -9,6 +9,7 @@
 #include <deque>
 #include <random>
 #include <fstream>
+#include <map>
 
 #define Dim 3
 
@@ -18,9 +19,9 @@ extern "C" {
 
 using namespace std;
 
-inline double dot(const int& d, double *u, double *v) {
+inline double dot(double *u, double *v) {
     double sum = 0.0;
-    for (int i = 0; i < d; ++ i) sum += u[i]*v[i];
+    for (int i = 0; i < Dim; ++ i) sum += u[i]*v[i];
     return sum;
 }
 
@@ -134,6 +135,16 @@ public:
         return true;
     }
 
+    /* true : right_top R-dominates instance */
+    bool RDominates(const InstanceBase& instance, const HyperBox& box) const {
+        double sum = instance.coord[Dim - 1] - right_top[Dim - 1];
+        for (int i = 0; i < Dim - 1; ++ i) {
+            if (instance.coord[i] - right_top[i] > 0) sum += (instance.coord[i] - right_top[i])*box.left_bottom[i];
+            else sum += (instance.coord[i] - right_top[i])*box.right_top[i];
+        }
+        return sum >= 0;
+    }
+
     friend ostream & operator <<(ostream& out, const HyperBox& box) {
         if (box.IsPoint()) {
             cout << "(";
@@ -151,42 +162,36 @@ public:
     }
 };
 
-class Instance {
+class InstanceBase {
 public:
     int obj_id;
     int ins_id;
     double prob;
     double *coord;
-    double beta;
-    // double *sigma;
     
-    Instance() : obj_id(-1), ins_id(-1), prob(0), coord(nullptr), beta(1) {}
+    InstanceBase() : obj_id(-1), ins_id(-1), prob(0), coord(nullptr) {}
 
-    Instance(const int& obj_id, const int& ins_id, const double& prob, const double* coord) {
+    InstanceBase(const int& obj_id, const int& ins_id, const double& prob, const double* coord) {
         this->obj_id = obj_id;
         this->ins_id = ins_id;
         this->prob = prob;
         this->coord = new double[Dim];
         for (int i = 0; i < Dim; ++i) this->coord[i] = coord[i];
-        this->beta = 1;
     }
 
-    ~Instance() {
+    virtual ~InstanceBase() {
         if (coord != nullptr) delete[] coord;
         coord = nullptr;
     }
 
-    /* return final result */
-    double GetProb() const { return prob*beta; }
-
     /* dominate test */
-    bool Dominates(const Instance& instance) const {
+    bool Dominates(const InstanceBase& instance) const {
         for (int i = 0; i < Dim; ++ i) if (coord[i] > instance.coord[i]) return false;
         return true;
     }
 
     /* R-dominate test */
-    bool RDominates(const Instance& instance, const HyperBox& box) const {
+    bool RDominates(const InstanceBase& instance, const HyperBox& box) const {
         double sum = instance.coord[Dim - 1] - coord[Dim - 1];
         for (int i = 0; i < Dim - 1; ++ i) {
             if (instance.coord[i] - coord[i] > 0) sum += (instance.coord[i] - coord[i])*box.left_bottom[i];
@@ -196,21 +201,15 @@ public:
     }
 };
 
-struct InstanceComparator {
-    InstanceComparator(int _d, double *_weight) : d(_d), weight(_weight) {}
-    bool operator ()(const Instance& u, const Instance& v) const {
-        return dot(d, u.coord, weight) < dot(d, v.coord, weight);
-    }
-    double *weight;
-    int d;
-};
 
 class DataOperator {
     int m, n, cnt;
     int* ins_cnt;
-    vector<Instance*> dataset;
+    vector<InstanceBase*> dataset;
 public:
     DataOperator() : m(0), n(0), cnt(0) {}
+
+    DataOperator(const int& m) : m(m), n(0), cnt(0) {}
 
     DataOperator(const int& m, const int& cnt) {
         this->m = m;
@@ -230,7 +229,7 @@ public:
         for (int i = 0; i < m; ++ i) {
             cout << "obj " << i << "\t cnt = " << ins_cnt[i] << endl;
             for (int j = 0; j < ins_cnt[i]; ++ j) {
-                cout << "(";
+                cout << "id = " << dataset[i][j].ins_id << "\t (";
                 for (int k = 0; k < Dim - 1; ++ k) cout << dataset[i][j].coord[k] << ", ";
                 cout << dataset[i][j].coord[Dim - 1] << ")\t";
                 cout << "prob = " << dataset[i][j].prob << endl;
@@ -244,7 +243,7 @@ public:
         file.close();
         file.open((string(path) + to_string(m) + string("/instances.data")).c_str(), ios::in);
         for (int i = 0; i < m; ++ i) {
-            dataset[i] = new Instance[ins_cnt[i]];
+            dataset[i] = new InstanceBase[ins_cnt[i]];
             for (int j = 0; j < ins_cnt[i]; ++ j) {
                 file >> dataset[i][j].obj_id;
                 file >> dataset[i][j].ins_id;
@@ -276,22 +275,16 @@ public:
         srand((unsigned)time(nullptr));
         switch (mode) {
         case 1:
-            for (int i = 0; i < m; ++ i) {
+            for (int i = 0; i < m; ++ i)
                 ins_cnt[i] = GenIndePoints(i, dataset[i]);
-                n += ins_cnt[i];
-            }
             break;
         case 2:
-            for (int i = 0; i < m; ++ i) {
+            for (int i = 0; i < m; ++ i)
                 ins_cnt[i] = GenAntiPoints(i, dataset[i], var1);
-                n += ins_cnt[i];
-            }
             break;
         case 3:
-            for (int i = 0; i < m; ++ i) {
+            for (int i = 0; i < m; ++ i)
                 ins_cnt[i] = GenCorrPoints(i, dataset[i], var1, var2);
-                n += ins_cnt[i];
-            }
             break;
         default:
             break;
@@ -305,7 +298,7 @@ private:
     }
 
     /* generate independent instances with uniform distribution */
-    int GenIndePoints(const int& obj_id, Instance* &points) const {
+    int GenIndePoints(const int& obj_id, InstanceBase* &points) {
         double *center = new double[Dim];
         for (int i = 0; i < Dim; ++ i) center[i] = rand()/double(RAND_MAX);
         int ins_cnt = rand()%cnt + 1;
@@ -316,10 +309,11 @@ private:
             l[i] = center[i] - length/2 > 0 ? center[i] - length/2 : 0;
             r[i] = center[i] + length/2 < 1 ? center[i] + length/2 : 1;
         }
-        points = new Instance[ins_cnt];
+        points = new InstanceBase[ins_cnt];
         for (int i = 0; i < ins_cnt; ++ i) {
             points[i].obj_id = obj_id;
-            points[i].ins_id = i;
+            // points[i].ins_id = i;
+            points[i].ins_id = n ++;
             points[i].coord = new double[Dim];
             for (int j = 0; j < Dim; ++ j) points[i].coord[j] = rand()/double (RAND_MAX)*(r[j] - l[j]) + l[j];
             points[i].prob = 1/double(ins_cnt);
@@ -331,7 +325,7 @@ private:
     }
 
     /* generate anti-correlated instances with uniform distribution */
-    int GenAntiPoints(const int& obj_id, Instance* &points, const double& var) const {
+    int GenAntiPoints(const int& obj_id, InstanceBase* &points, const double& var) {
         double c = 0;
         do {c = RandNormal(0.5, var); } while (c >= 1 || c <= 0);
         double *center = new double[Dim];
@@ -350,10 +344,11 @@ private:
             l[i] = center[i] - length/2 > 0 ? center[i] - length/2 : 0;
             r[i] = center[i] + length/2 < 1 ? center[i] + length/2 : 1;
         }
-        points = new Instance[ins_cnt];
+        points = new InstanceBase[ins_cnt];
         for (int i = 0; i < ins_cnt; ++ i) {
             points[i].obj_id = obj_id;
-            points[i].ins_id = i;
+            // points[i].ins_id = i;
+            points[i].ins_id = n ++;
             points[i].coord = new double[Dim];
             for (int j = 0; j < Dim; ++ j) {
                 points[i].coord[j] = rand()/double(RAND_MAX)*(r[j] - l[j]) + l[j];
@@ -367,7 +362,7 @@ private:
     }
 
     /* generate correlated instances with unoform distribution */
-    int GenCorrPoints(const int& obj_id, Instance* &points, const double& var1, const double& var2) const {
+    int GenCorrPoints(const int& obj_id, InstanceBase* &points, const double& var1, const double& var2) {
         double c = 0;
         do { c = RandNormal(0.5, var1); } while (c >= 1 || c <= 0);
         double *center = new double[Dim];
@@ -386,10 +381,11 @@ private:
             l[i] = center[i] - length/2 > 0 ? center[i] - length/2 : 0;
             r[i] = center[i] + length/2 < 1 ? center[i] + length/2 : 1;
         }
-        points = new Instance[ins_cnt];
+        points = new InstanceBase[ins_cnt];
         for (int i = 0; i < ins_cnt; ++ i) {
             points[i].obj_id = obj_id;
-            points[i].ins_id = i;
+            // points[i].ins_id = i;
+            points[i].ins_id = n ++;
             points[i].coord = new double[Dim];
             for (int j = 0; j < Dim; ++ j) {
                 points[i].coord[j] = rand()/double(RAND_MAX)*(r[j] - l[j]) + l[j];
