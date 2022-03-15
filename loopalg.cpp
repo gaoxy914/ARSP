@@ -106,27 +106,22 @@ public:
 
     void LoopPreprocessing() {
         for (int i = 0; i < m - 1; ++ i) {
-            cout << "i = " << i << endl;
-            Object& obj1 = objects[i];
+            Object obj1 = objects[i];
             for (int j = i + 1; j < m; ++ j) {
-                cout << "j = " << j << endl;
-                Object& obj2 = objects[j];
+                Object obj2 = objects[j];
                 for (int p = 0; p < obj1.cnt; ++ p) {
                     for (int q = 0; q < obj2.cnt; ++ q) {
-                        if (obj1.instances[p].Dominates(obj2.instances[q])) {
+                        if (obj1.instances[p].Dominates(obj2.instances[q]))
                             dominate[make_pair(obj1.instances[p].ins_id, obj2.instances[q].ins_id)] = true;
-                            cout << obj1.instances[p].ins_id << " dominates " << obj2.instances[q].ins_id << endl;
-                        } else if (obj2.instances[q].Dominates(obj1.instances[p])) {
+                        else if (obj2.instances[q].Dominates(obj1.instances[p]))
                             dominate[make_pair(obj2.instances[q].ins_id, obj1.instances[p].ins_id)] = true;
-                            cout << obj2.instances[q].ins_id << " dominates " << obj1.instances[p].ins_id << endl;
-                        } else cout << obj1.instances[p].ins_id << " and " << obj2.instances[q].ins_id << " is umcomparable.\n";
                     }
                 }                    
             }
         }
     }
 
-    void LoopAlg(const HyperBox& R) {
+    void LoopAlg(const HyperBox& R, map<int, double> results) {
         vector<Instance> min_heap; // heap for global sorting
         vector<Instance> popped; // instances popped before the current one
         vector<HyperBox> MBR; // minimum bounding rectangle with capacity c
@@ -166,7 +161,14 @@ public:
                     }
                 }
             }
-            cout << "(" << cur_ins.ins_id << ", " << cur_ins.GetProb() << ")\n";
+            /* for (auto iter : popped) { // trivial loop
+                if (iter.RDominates(cur_ins, R)) {
+                    cur_ins.beta *= (1 - cur_ins.sigma[iter.obj_id] - iter.prob)/(1 - cur_ins.sigma[iter.obj_id]);
+                    cur_ins.sigma[iter.obj_id] += iter.prob; 
+                }
+            } */
+            // cout << "(" << cur_ins.ins_id << ", " << cur_ins.GetProb() << ")\n";
+            results[cur_ins.ins_id] = cur_ins.GetProb();
             cur_n ++;
             HyperBox B = HyperBox(Dim, cur_ins.coord, cur_ins.coord);
             if (cur_n%c == 1) MBR.push_back(B);
@@ -195,16 +197,17 @@ int main(int argc, char const *argv[]) {
     struct timeval start, end;
     gettimeofday(&start, NULL);
 #endif
+    map<int, double> results;
     Dataset D(10, 4);
     double l[2] = {1, 2};
     double r[2] = {1, 2};
     HyperBox R(2, l, r);
     D.LoadData(argv[1]);
-    cout << "finish data load.\n";
-    D.PrintData();
+    // cout << "finish data load.\n";
+    // D.PrintData();
     D.LoopPreprocessing();
-    cout << "finish preprocessing.\n";
-    D.LoopAlg(R);
+    // cout << "finish preprocessing.\n";
+    D.LoopAlg(R, results);
 #ifdef _LINUX_
     gettimeofday(&end, NULL);
     long long mtime, seconds, useconds;
