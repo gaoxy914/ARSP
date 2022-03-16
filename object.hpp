@@ -64,18 +64,16 @@ public:
     }
 
     /* return 2^d extremes */
-    void GetExtremes(vector<double*> extremes) const {
-        extremes.reserve(pow(2, d));
-        for (int i = 1, k = 1; i < pow(2, d) - 1; ++ i, ++ k) {
-            double *p = new double[d + 1];
+    void GetExtremes(vector<double*>& extremes) const {
+        extremes.resize(int(pow(2, d)));
+        for (int i = 0; i < pow(2, d); ++ i) {
+            int k = i;
+            extremes[i] = new double[d + 1];
             for (int j = 0; j < d; ++ j) {
-                p[j] = ((k>>j)&1) == 0 ? left_bottom[j] : right_top[j];
+                extremes[i][j] = ((k>>j)&1) == 0 ? left_bottom[j] : right_top[j];
             }
-            p[d] = 1;
-            extremes[i] = p;
+            extremes[i][d] = 1;
         }
-        extremes[0] = left_bottom;
-        extremes[-1] = right_top;
     }
 
     /* Contain Test */
@@ -170,7 +168,7 @@ class InstanceBase {
 public:
     int obj_id;
     int ins_id;
-    double prob;
+    double prob; // precision concern, now for cnt in obj
     double *coord;
     
     InstanceBase() : obj_id(-1), ins_id(-1), prob(0), coord(nullptr) {}
@@ -232,7 +230,7 @@ public:
                 cout << "id = " << dataset[i][j].ins_id << "\t (";
                 for (int k = 0; k < Dim - 1; ++ k) cout << dataset[i][j].coord[k] << ", ";
                 cout << dataset[i][j].coord[Dim - 1] << ")\t";
-                cout << "prob = " << dataset[i][j].prob << endl;
+                cout << "prob = " << 1/dataset[i][j].prob << endl;
             }
         }
     }
@@ -316,7 +314,8 @@ private:
             points[i].ins_id = n ++;
             points[i].coord = new double[Dim];
             for (int j = 0; j < Dim; ++ j) points[i].coord[j] = rand()/double (RAND_MAX)*(r[j] - l[j]) + l[j];
-            points[i].prob = 1/double(ins_cnt);
+            // points[i].prob = 1/double(ins_cnt);
+            points[i].prob = double(ins_cnt);
         }
         delete[] center;
         delete[] l;
@@ -353,7 +352,8 @@ private:
             for (int j = 0; j < Dim; ++ j) {
                 points[i].coord[j] = rand()/double(RAND_MAX)*(r[j] - l[j]) + l[j];
             }
-            points[i].prob = 1/double(ins_cnt);
+            // points[i].prob = 1/double(ins_cnt);
+            points[i].prob = double(ins_cnt);
         }
         delete[] center;
         delete[] l;
@@ -390,7 +390,8 @@ private:
             for (int j = 0; j < Dim; ++ j) {
                 points[i].coord[j] = rand()/double(RAND_MAX)*(r[j] - l[j]) + l[j];
             }
-            points[i].prob = 1/double(ins_cnt);
+            // points[i].prob = 1/double(ins_cnt);
+            points[i].prob = double(ins_cnt);
         }
         delete[] center;
         delete[] l;
@@ -398,15 +399,15 @@ private:
         return ins_cnt;
     }
 };
-/*
-int main(int argc, char const *argv[]) {
+
+/* int main(int argc, char const *argv[]) {
     DataOperator data_operator(10, 10);
-    // data_operator.GenData(1);
-    data_operator.LoadData(argv[1]);
+    data_operator.GenData(1);
+    // data_operator.LoadData(argv[1]);
     data_operator.PrintData();
-    // data_operator.WriteData(argv[1]);
+    data_operator.WriteData(argv[1]);
     return 0;
-}
-*/
+} */
+
 
 #endif
