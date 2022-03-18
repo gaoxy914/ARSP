@@ -1,4 +1,5 @@
 #include "object.hpp"
+#include "kdtree.hpp"
 
 class Object {
 public:
@@ -36,7 +37,7 @@ public:
         file.close();        
     }
 
-    void TransAlg(const HyperBox& R, map<int, double> results) {
+    void TransAlg(const HyperBox& R, map<int, double>& results) {
         vector<double*> extremes;
         R.GetExtremes(extremes);
         int dim = extremes.size();
@@ -53,10 +54,25 @@ public:
                 new_instances.push_back(new_ins);
             }
         }
-
+        // cout << "finish transformation.\n";
         // build kd-tree
-
+        KDTree kdtree(dim, m, new_instances);
+        // cout << "finish kdtree construction.\n";
         // calculate skyline probability
-           
+        results = kdtree.CalSkyPorb();
+        for (auto iter : results)
+            if (iter.second != 0)
+                cout << "(" << iter.first << ", " << iter.second << ")\n";
     }
 };
+
+int main(int argc, char const *argv[]) {
+    map<int, double> results;
+    Dataset D(10);
+    double l[2] = {1, 1};
+    double r[2] = {2, 2};
+    HyperBox R(2, l, r);
+    D.LoadData(argv[1]);
+    D.TransAlg(R, results);
+    return 0;
+}
