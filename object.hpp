@@ -183,14 +183,19 @@ public:
 
     /* dominate test for loop based algorithm */
     bool Dominates(const InstanceBase& instance) const {
+        if (ins_id == instance.ins_id) return false;
         for (int i = 0; i < Dim; ++ i) if (coord[i] > instance.coord[i]) return false;
         return true;
     }
 
     /* dominate test for transform based algorithm */
     bool Dominates(const int& dim, const double *other) {
-        for (int i = 0; i < dim; ++ i) if (coord[i] > other[i]) return false;
-        return true;
+        int equal = true;
+        for (int i = 0; i < dim; ++ i) {
+            if (coord[i] > other[i]) return false;
+            else if (coord[i] < other[i]) equal = false;
+        }
+        return !equal;
     }
 
     /* R-dominate test */
