@@ -1,20 +1,20 @@
-#include "object.cpp"
+#include "object.hpp"
 
 class Instance : public InstanceBase {
 public:
     double beta;
-    double *sigma;
+    int *sigma;
 
     Instance() : InstanceBase(), beta(1), sigma(nullptr) {}
 
     void Initial(const int& m) {
-        if (sigma == nullptr) sigma = new double[m];
+        if (sigma == nullptr) sigma = new int[m];
         memset(sigma, 0, m*sizeof(sigma));
         beta = 1;
     }
 
     double GetProb() const {
-        return prob*beta;
+        return (1/prob)*beta;
     }
 };
 
@@ -31,12 +31,11 @@ public:
     int obj_id;
     int cnt;
     int heap_size;
-    double eprob;
     vector<Instance> instances;
 
-    Object() : obj_id(-1), cnt(0), heap_size(0), eprob(0) {}
+    Object() : obj_id(-1), cnt(0), heap_size(0) {}
 
-    Object(const int& obj_id) : obj_id(obj_id), cnt(0), heap_size(0), eprob(0) {}
+    Object(const int& obj_id) : obj_id(obj_id), cnt(0), heap_size(0) {}
 
     void MakeHeap(double *weight) {
         heap_size = cnt;
@@ -50,12 +49,18 @@ public:
         return instance;
     }
 
-    Instance Top() {
+    Instance Top() const {
         return instances.front();
     }
 
-    bool Empty() {
+    bool Empty() const {
         return heap_size == 0;
+    }
+
+    double GetProb() const {
+        double eprob = 0;
+        for (int i = 0; i < cnt; ++ i) eprob += instances[i].GetProb();
+        return eprob;
     }
 };
 
@@ -99,7 +104,7 @@ public:
                 cout << "id = " << objects[i].instances[j].ins_id << "\t (";
                 for (int k = 0; k < Dim - 1; ++ k) cout << objects[i].instances[j].coord[k] << ", ";
                 cout << objects[i].instances[j].coord[Dim - 1] << ")\t";
-                cout << "prob = " << objects[i].instances[j].prob << endl;
+                cout << "prob = " << 1/objects[i].instances[j].prob << endl;
             }
         }
     }
@@ -121,7 +126,7 @@ public:
         }
     }
 
-    void LoopAlg(const HyperBox& R, map<int, double> results) {
+    void LoopAlg(const HyperBox& R, map<int, double>& results) {
         vector<Instance> min_heap; // heap for global sorting
         vector<Instance> popped; // instances popped before the current one
         vector<HyperBox> MBR; // minimum bounding rectangle with capacity c
@@ -148,15 +153,20 @@ public:
                     for (int j = i*c; j < min((i + 1)*c, cur_n); ++ j) {
                         if (popped[j].obj_id == cur_ins.obj_id) continue;
                         Instance cmp_ins = popped[j];
-                        cur_ins.beta *= (1 - cur_ins.sigma[cmp_ins.obj_id] - popped[j].prob)/(1 - cur_ins.sigma[popped[j].obj_id]);
-                        cur_ins.sigma[popped[j].obj_id] += popped[j].prob;
+                        // cur_ins.beta *= (1 - cur_ins.sigma[cmp_ins.obj_id] - popped[j].prob)/(1 - cur_ins.sigma[popped[j].obj_id]);
+                        // cur_ins.sigma[popped[j].obj_id] += popped[j].prob;
+                        cur_ins.beta *= (cmp_ins.prob - cur_ins.sigma[cmp_ins.obj_id] - 1)/(cmp_ins.prob - cur_ins.sigma[cmp_ins.obj_id]);
+                        cur_ins.sigma[cmp_ins.obj_id] += 1;
                     }
                 } else {
                     for (int j = i*c; j < min((i + 1)*c, cur_n); ++ j) {
                         if (popped[j].obj_id == cur_ins.obj_id) continue;
                         if (dominate[make_pair(popped[j].ins_id, cur_ins.ins_id)] || popped[j].RDominates(cur_ins, R)) {                            
-                            cur_ins.beta *= (1 - cur_ins.sigma[popped[j].obj_id] - popped[j].prob)/(1 - cur_ins.sigma[popped[j].obj_id]);
-                            cur_ins.sigma[popped[j].obj_id] += popped[j].prob;
+                            // cur_ins.beta *= (1 - cur_ins.sigma[popped[j].obj_id] - popped[j].prob)/(1 - cur_ins.sigma[popped[j].obj_id]);
+                            // cur_ins.sigma[popped[j].obj_id] += popped[j].prob;
+                            Instance cmp_ins = popped[j];
+                            cur_ins.beta *= (cmp_ins.prob - cur_ins.sigma[cmp_ins.obj_id] - 1)/(cmp_ins.prob - cur_ins.sigma[cmp_ins.obj_id]);
+                            cur_ins.sigma[cmp_ins.obj_id] += 1;
                         }
                     }
                 }
@@ -182,11 +192,9 @@ public:
         }
         delete[] centroid;
         delete[] weight;
-        for (auto iter : objects) {
-            for (int i = 0; i < iter.cnt; ++ i) {
-                cout << iter.instances[i].ins_id << '\t' << iter.instances[i].GetProb() << endl;
-            }
-        }
+        for (auto iter : results)
+            if (iter.second != 0)
+                cout << "(" << iter.first << ", " << iter.second << ")\n";
     }
 };
 
@@ -199,12 +207,12 @@ int main(int argc, char const *argv[]) {
 #endif
     map<int, double> results;
     Dataset D(10, 4);
-    double l[2] = {1, 2};
-    double r[2] = {1, 2};
+    double l[2] = {1, 1};
+    double r[2] = {2, 2};
     HyperBox R(2, l, r);
     D.LoadData(argv[1]);
     // cout << "finish data load.\n";
-    // D.PrintData();
+    D.PrintData();
     D.LoopPreprocessing();
     // cout << "finish preprocessing.\n";
     D.LoopAlg(R, results);
