@@ -34,6 +34,11 @@ public:
         left_bottom = right_top = nullptr;
     }
 
+    HyperBox(const int& d) : d(d) {
+        left_bottom = new double[d];
+        right_top = new double[d];
+    }
+
     HyperBox(const int& d, double* coord) {
         this->d = d;
         this->left_bottom = new double[d];
@@ -63,16 +68,16 @@ public:
         return centroid;
     }
 
-    /* return 2^d extremes */
-    void GetExtremes(vector<double*>& extremes) const {
-        extremes.resize(int(pow(2, d)));
+    /* return 2^d vertices */
+    void GetVertices(vector<double*>& vertices) const {
+        vertices.resize(int(pow(2, d)));
         for (int i = 0; i < pow(2, d); ++ i) {
             int k = i;
-            extremes[i] = new double[d + 1];
+            vertices[i] = new double[d + 1];
             for (int j = 0; j < d; ++ j) {
-                extremes[i][j] = ((k>>j)&1) == 0 ? left_bottom[j] : right_top[j];
+                vertices[i][j] = ((k>>j)&1) == 0 ? left_bottom[j] : right_top[j];
             }
-            extremes[i][d] = 1;
+            vertices[i][d] = 1;
         }
     }
 
@@ -161,6 +166,55 @@ public:
         for (int i = 0; i < box.d - 1; ++ i) cout << box.right_top[i] << ", ";
         cout << box.right_top[box.d - 1] << ")";
         return out;
+    }
+};
+
+/* format : x[d] = w[1]x[1] + ... + w[d-1]x[d-1] + w[d] */
+class HyperPlane {
+public:
+    int obj_id;
+    int ins_id;
+    double prob;
+    double *coef; // w[1], ..., w[d]
+
+    HyperPlane() : obj_id(-1), ins_id(-1), prob(0), coef(nullptr) {}
+
+    HyperPlane(const int& obj_id, const int& ins_id, const double& prob, const double* coef) {
+        this->obj_id = obj_id;
+        this->ins_id = ins_id;
+        this->prob = prob;
+        this->coef = new double[Dim];
+        for (int i = 0; i < Dim; ++ i) this->coef[i] = coef[i];
+    }
+
+    /*
+     * object funciton : z = w[1]x[1] + ... + w[d-1]x[d-1] - x[d] + w[d]
+     * subject to : x[i] \in [space.l[i], space.r[i]] for i \in {1, ..., d}
+     */
+    void CalExtremes(const HyperBox& space, double& max_value, double& min_value) const {
+       max_value = coef[Dim - 1] - space.left_bottom[i];
+       min_value = coef[Dim - 1] - space.right_top[i];
+       for (int i = 0; i < Dim - 1; ++ i) {
+           if (coef[i] > 0) {
+               max_value += coef[i]*space.right_top[i];
+               min_value += coef[i]*space.left_bottom[i];
+           } else {
+               max_value += coef[i]*space.left_bottom[i];
+               min_value += coef[i]*space.right_top[i];
+           }
+       }
+    }
+
+    bool Intersect(const HyperBox& space) const {
+        double max_value = 0, min_value = 0;
+        CalExtremes(space, max_value, min_value);
+        return min_value <= 0 && max_value >= 0;
+    }
+
+    bool Above(const HyperBox& space) const {
+        double max_value = 0, min_value = 0;
+        CalExtremes(space, max_value, min_value);
+        return min_value > 0;
     }
 };
 
