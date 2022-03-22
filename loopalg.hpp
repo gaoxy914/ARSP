@@ -3,19 +3,10 @@
 class Instance : public InstanceBase {
 public:
     double beta;
-    int *sigma;
 
-    Instance() : InstanceBase(), beta(1), sigma(nullptr) {}
+    Instance() : InstanceBase(), beta(1) {}
 
-    void Initial(const int& m) {
-        if (sigma == nullptr) sigma = new int[m];
-        memset(sigma, 0, m*sizeof(sigma));
-        beta = 1;
-    }
-
-    double GetProb() const {
-        return (1/prob)*beta;
-    }
+    double GetProb() const { return (1/prob)*beta; }
 };
 
 struct InstanceComparator {
@@ -49,13 +40,9 @@ public:
         return instance;
     }
 
-    Instance Top() const {
-        return instances.front();
-    }
+    Instance Top() const { return instances.front(); }
 
-    bool Empty() const {
-        return heap_size == 0;
-    }
+    bool Empty() const { return heap_size == 0; }
 
     double GetProb() const {
         double eprob = 0;
@@ -83,7 +70,6 @@ public:
         file.close();
         file.open((string(path) + to_string(m) + string("/instances.data")).c_str(), ios::in);
         for (int i = 0; i < m; ++ i) {
-            // objects[i].instances = new Instance[objects[i].cnt];
             objects[i].instances.resize(objects[i].cnt);
             for (int j = 0; j < objects[i].cnt; ++ j) {
                 file >> objects[i].instances[j].obj_id;
@@ -110,18 +96,21 @@ public:
     }
 
     void LoopPreprocessing() {
-        for (int i = 0; i < m - 1; ++ i) {
-            Object obj1 = objects[i];
-            for (int j = i + 1; j < m; ++ j) {
-                Object obj2 = objects[j];
-                for (int p = 0; p < obj1.cnt; ++ p) {
-                    for (int q = 0; q < obj2.cnt; ++ q) {
-                        if (obj1.instances[p].Dominates(obj2.instances[q]))
-                            dominate[make_pair(obj1.instances[p].ins_id, obj2.instances[q].ins_id)] = true;
-                        else if (obj2.instances[q].Dominates(obj1.instances[p]))
-                            dominate[make_pair(obj2.instances[q].ins_id, obj1.instances[p].ins_id)] = true;
+        for (auto& obj1 : objects) {
+            for (int i = 0; i < obj1.cnt; ++ i) {
+                for (auto obj2 : objects) {
+                    if (obj1.obj_id == obj2.obj_id) continue;
+                    int sigma = 0;
+                    for (int j = 0; j < obj2.cnt; ++ j) {
+                        if (obj2.instances[j].Dominates(obj1.instances[i])) {
+                            pair<int, int> p(obj2.instances[j].ins_id, obj1.instances[i].ins_id);
+                            dominate[p] = true;
+                            sigma ++;
+                            // instance is dominated by obj2
+                            if (sigma == obj2.cnt) obj1.instances[i].beta = 0;
+                        }
                     }
-                }                    
+                }
             }
         }
     }
@@ -142,42 +131,33 @@ public:
             min_heap.push_back(ins);
         }
         make_heap(min_heap.begin(), min_heap.end(), InstanceComparator(weight));        
-        // cout << "global heap done.\n";
+        int* sigma = new int[m];
         while (min_heap.size() > 0) {
             Instance cur_ins = min_heap.front();
             pop_heap(min_heap.begin(), min_heap.end(), InstanceComparator(weight));
             min_heap.pop_back();
-            cur_ins.Initial(m);
-            for (int i = 0; i < MBR.size(); ++ i) {
-                if (MBR[i].RDominates(cur_ins.coord, R)) {
-                    for (int j = i*c; j < min((i + 1)*c, cur_n); ++ j) {
-                        if (popped[j].obj_id == cur_ins.obj_id) continue;
-                        Instance cmp_ins = popped[j];
-                        // cur_ins.beta *= (1 - cur_ins.sigma[cmp_ins.obj_id] - popped[j].prob)/(1 - cur_ins.sigma[popped[j].obj_id]);
-                        // cur_ins.sigma[popped[j].obj_id] += popped[j].prob;
-                        cur_ins.beta *= (cmp_ins.prob - cur_ins.sigma[cmp_ins.obj_id] - 1)/(cmp_ins.prob - cur_ins.sigma[cmp_ins.obj_id]);
-                        cur_ins.sigma[cmp_ins.obj_id] += 1;
-                    }
-                } else {
-                    for (int j = i*c; j < min((i + 1)*c, cur_n); ++ j) {
-                        if (popped[j].obj_id == cur_ins.obj_id) continue;
-                        if (dominate[make_pair(popped[j].ins_id, cur_ins.ins_id)] || popped[j].RDominates(cur_ins, R)) {                            
-                            // cur_ins.beta *= (1 - cur_ins.sigma[popped[j].obj_id] - popped[j].prob)/(1 - cur_ins.sigma[popped[j].obj_id]);
-                            // cur_ins.sigma[popped[j].obj_id] += popped[j].prob;
+            if (cur_ins.beta != 0) {
+                for (int i = 0; i < m; ++ i) sigma[i] = 0;
+                for (int i = 0; i < MBR.size(); ++ i) {
+                    if (MBR[i].RDominates(cur_ins.coord, R)) {
+                        for (int j = i*c; j < min((i + 1)*c, cur_n); ++ j) {
+                            if (popped[j].obj_id == cur_ins.obj_id) continue;
                             Instance cmp_ins = popped[j];
-                            cur_ins.beta *= (cmp_ins.prob - cur_ins.sigma[cmp_ins.obj_id] - 1)/(cmp_ins.prob - cur_ins.sigma[cmp_ins.obj_id]);
-                            cur_ins.sigma[cmp_ins.obj_id] += 1;
+                            cur_ins.beta *= (cmp_ins.prob - sigma[cmp_ins.obj_id] - 1)/(cmp_ins.prob - sigma[cmp_ins.obj_id]);
+                            sigma[cmp_ins.obj_id] += 1;
+                        }
+                    } else {
+                        for (int j = i*c; j < min((i + 1)*c, cur_n); ++ j) {
+                            if (popped[j].obj_id == cur_ins.obj_id) continue;
+                            if (dominate[make_pair(popped[j].ins_id, cur_ins.ins_id)] || popped[j].RDominates(cur_ins, R)) {                            
+                                Instance cmp_ins = popped[j];
+                                cur_ins.beta *= (cmp_ins.prob - sigma[cmp_ins.obj_id] - 1)/(cmp_ins.prob - sigma[cmp_ins.obj_id]);
+                                sigma[cmp_ins.obj_id] += 1;
+                            }
                         }
                     }
                 }
             }
-            /* for (auto iter : popped) { // trivial loop
-                if (iter.RDominates(cur_ins, R)) {
-                    cur_ins.beta *= (1 - cur_ins.sigma[iter.obj_id] - iter.prob)/(1 - cur_ins.sigma[iter.obj_id]);
-                    cur_ins.sigma[iter.obj_id] += iter.prob; 
-                }
-            } */
-            // cout << "(" << cur_ins.ins_id << ", " << cur_ins.GetProb() << ")\n";
             results[cur_ins.ins_id] = cur_ins.GetProb();
             cur_n ++;
             HyperBox B = HyperBox(Dim, cur_ins.coord, cur_ins.coord);
@@ -192,6 +172,7 @@ public:
         }
         delete[] centroid;
         delete[] weight;
+        delete[] sigma;
         for (auto iter : results)
             if (iter.second != 0)
                 cout << "(" << iter.first << ", " << iter.second << ")\n";
@@ -212,7 +193,7 @@ int main(int argc, char const *argv[]) {
     HyperBox R(2, l, r);
     D.LoadData(argv[1]);
     // cout << "finish data load.\n";
-    D.PrintData();
+    // D.PrintData();
     D.LoopPreprocessing();
     // cout << "finish preprocessing.\n";
     D.LoopAlg(R, results);
