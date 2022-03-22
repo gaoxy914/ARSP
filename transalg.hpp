@@ -6,6 +6,8 @@ public:
     int obj_id;
     int cnt;
     InstanceBase* instances;
+    
+    Object() : obj_id(-1), cnt(0), instances(nullptr) {}
 };
 
 class Dataset {
@@ -38,9 +40,9 @@ public:
     }
 
     void TransAlg(const HyperBox& R, map<int, double>& results) {
-        vector<double*> extremes;
-        R.GetExtremes(extremes);
-        int dim = extremes.size();
+        vector<double*> vertices;
+        R.GetVertices(vertices);
+        int dim = vertices.size();
         vector<InstanceBase> new_instances;
         new_instances.reserve(n);
         for (auto obj : objects) {
@@ -50,7 +52,7 @@ public:
                 new_ins.ins_id = cur_ins.ins_id;
                 new_ins.prob = cur_ins.prob;
                 new_ins.coord = new double[dim];
-                for (int j = 0; j < dim; ++ j) new_ins.coord[j] = dot(cur_ins.coord, extremes[j]);
+                for (int j = 0; j < dim; ++ j) new_ins.coord[j] = dot(cur_ins.coord, vertices[j]);
                 new_instances.push_back(new_ins);
             }
         }

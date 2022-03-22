@@ -15,7 +15,7 @@ class KDTree {
 
     struct Info {
         vector<InstanceBase> cap_instances;
-        int* sigma;
+        int *sigma;
         double beta;
         int xi;
     };
