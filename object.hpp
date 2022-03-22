@@ -10,8 +10,9 @@
 #include <random>
 #include <fstream>
 #include <map>
+#include <unordered_map>
 
-#define Dim 3
+#define Dim 3 // data dimension
 
 extern "C" {
     #include "glpk.h"
@@ -86,6 +87,15 @@ public:
         for (int i = 0; i < d; ++ i)
             if (left_bottom[i] > other.left_bottom[i] || right_top[i] < other.right_top[i]) return false;
         return true;
+    }
+
+    int Contain(const double* point) const {
+        int k = 0;
+        for (int i = 0; i < d; ++ i) {
+            if (point[i] > (left_bottom[i] + right_top[i])/2)
+                k += (1<<i);
+        }
+        return k;
     }
 
     /* Intesection Test */
@@ -192,8 +202,8 @@ public:
      * subject to : x[i] \in [space.l[i], space.r[i]] for i \in {1, ..., d}
      */
     void CalExtremes(const HyperBox& space, double& max_value, double& min_value) const {
-       max_value = coef[Dim - 1] - space.left_bottom[i];
-       min_value = coef[Dim - 1] - space.right_top[i];
+       max_value = coef[Dim - 1] - space.left_bottom[Dim - 1];
+       min_value = coef[Dim - 1] - space.right_top[Dim - 1];
        for (int i = 0; i < Dim - 1; ++ i) {
            if (coef[i] > 0) {
                max_value += coef[i]*space.right_top[i];
@@ -215,6 +225,15 @@ public:
         double max_value = 0, min_value = 0;
         CalExtremes(space, max_value, min_value);
         return min_value > 0;
+    }
+
+    bool RDominates(const double* coord, const HyperBox& box) const {
+        double sum = coord[Dim - 1] + coef[Dim - 1];
+        for (int i = 0; i < Dim; ++ i ) {
+            if (coord[i] > coef[i]) sum += (coord[i] - coef[i])*box.left_bottom[i];
+            else sum += (coord[i] - coef[i])*box.right_top[i];
+        }
+        return sum >= 0;
     }
 };
 
@@ -238,7 +257,9 @@ public:
     /* dominate test for loop based algorithm */
     bool Dominates(const InstanceBase& instance) const {
         if (ins_id == instance.ins_id) return false;
-        for (int i = 0; i < Dim; ++ i) if (coord[i] > instance.coord[i]) return false;
+        for (int i = 0; i < Dim; ++ i) {
+            if (coord[i] > instance.coord[i]) return false;
+        }
         return true;
     }
 
@@ -260,6 +281,19 @@ public:
             else sum += (instance.coord[i] - coord[i])*box.right_top[i];
         }
         return sum >= 0;
+    }
+
+    void ToQueryPoints(const HyperBox& box, vector<double*> points) const {
+        points.resize(int(pow(2, box.d)));
+        for (int i = 0; i < pow(2, box.d); ++ i) {
+            int k = i;
+            points[i] = new double[Dim];
+            points[i][Dim - 1] = -coord[Dim - 1];
+            for (int j = 0; j < box.d; ++ j) {
+                points[i][j] = ((k>>j)&1) == 0 ? -box.left_bottom[j] : -box.right_top[j];
+                points[i][Dim - 1] -= points[i][j]*coord[j];
+            }
+        }
     }
 };
 
