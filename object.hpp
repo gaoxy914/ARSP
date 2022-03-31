@@ -60,15 +60,6 @@ public:
         }
     }
 
-    /* return centroid of the box */
-    double* GetCentroid() const {
-        double *centroid = new double[d];
-        for (int i = 0; i < d; ++ i) {
-            centroid[i] = (left_bottom[i] + right_top[i])/2;
-        }
-        return centroid;
-    }
-
     /* return 2^d vertices */
     void GetVertices(vector<double*>& vertices) const {
         vertices.resize(int(pow(2, d)));
@@ -80,60 +71,6 @@ public:
             }
             vertices[i][d] = 1;
         }
-    }
-
-    /* Contain Test */
-    bool Contain(const HyperBox& other) const {
-        for (int i = 0; i < d; ++ i)
-            if (left_bottom[i] > other.left_bottom[i] || right_top[i] < other.right_top[i]) return false;
-        return true;
-    }
-
-    int Contain(const double* point) const {
-        int k = 0;
-        for (int i = 0; i < d; ++ i) {
-            if (point[i] > (left_bottom[i] + right_top[i])/2)
-                k += (1<<i);
-        }
-        return k;
-    }
-
-    /* Intesection Test */
-    bool Intersect(const HyperBox& other) const {
-        for (int i = 0; i < d; ++ i)
-            if (left_bottom[i] > other.right_top[i] || right_top[i] < other.left_bottom[i]) return false;
-        
-        return true;
-    }
-
-    /* return volumn */
-    double GetArea() const {
-        double area = 1;
-        for (int i = 0; i < d; ++ i) area *= (right_top[i] - left_bottom[i]);
-        return area;
-    }
-
-    /* return perimeter */
-    double GetPerimeter() const {
-        double perimeter = 0;
-        for (int i = 0; i < d; ++ i) perimeter += (right_top[i] - left_bottom[i]);
-        return perimeter;
-    }
-
-    /* return volumn of overlap */
-    double GetOverlapArea(const HyperBox& other) const {
-        double overlap = 1;
-        if (!Intersect(other)) return 0;
-        for (int i = 0; i < d; ++ i) {
-            if (left_bottom[i] <= other.left_bottom[i]) {
-                if (right_top[i] <= other.right_top[i]) overlap *= (right_top[i] - other.left_bottom[i]);
-                else overlap *= (other.right_top[i] - other.left_bottom[i]);
-            } else {
-                if (right_top[i] <= other.right_top[i]) overlap *= (right_top[i] - left_bottom[i]);
-                else overlap *= (other.right_top[i] - left_bottom[i]);
-            }
-        }
-        return overlap;
     }
 
     /* MBR of two box */
@@ -198,33 +135,28 @@ public:
     }
 
     /*
-     * object funciton : z = w[1]x[1] + ... + w[d-1]x[d-1] - x[d] + w[d]
-     * subject to : x[i] \in [space.l[i], space.r[i]] for i \in {1, ..., d}
+     * object funciton : z = x[d] - w[1]x[1] - ... - w[d-1]x[d-1]
+     * subject to : x[i] \in [region.l[i], region.r[i]] for i \in {1, ..., d}
      */
-    void CalExtremes(const HyperBox& space, double& max_value, double& min_value) const {
-       max_value = coef[Dim - 1] - space.left_bottom[Dim - 1];
-       min_value = coef[Dim - 1] - space.right_top[Dim - 1];
-       for (int i = 0; i < Dim - 1; ++ i) {
-           if (coef[i] > 0) {
-               max_value += coef[i]*space.right_top[i];
-               min_value += coef[i]*space.left_bottom[i];
-           } else {
-               max_value += coef[i]*space.left_bottom[i];
-               min_value += coef[i]*space.right_top[i];
-           }
-       }
+    void CalExtremes(const HyperBox& region, double& max_value, double& min_value) const {
+        max_value = region.right_top[Dim - 1];
+        min_value = region.left_bottom[Dim - 1];
+        for (int i = 0; i < Dim - 1; ++ i) {
+            max_value -= coef[i] > 0 ? coef[i]*region.left_bottom[i] : coef[i]*region.right_top[i];
+            min_value -= coef[i] > 0 ? coef[i]*region.right_top[i] : coef[i]*region.left_bottom[i];
+        }
     }
 
-    bool Intersect(const HyperBox& space) const {
+    bool Intersect(const HyperBox& region) const {
         double max_value = 0, min_value = 0;
-        CalExtremes(space, max_value, min_value);
-        return min_value <= 0 && max_value >= 0;
+        CalExtremes(region, max_value, min_value);
+        return min_value < coef[Dim - 1] && max_value > coef[Dim - 1];
     }
 
-    bool Above(const HyperBox& space) const {
+    bool Above(const HyperBox& region) const {
         double max_value = 0, min_value = 0;
-        CalExtremes(space, max_value, min_value);
-        return min_value > 0;
+        CalExtremes(region, max_value, min_value);
+        return max_value <= coef[Dim - 1];
     }
 
     bool RDominates(const double* coord, const HyperBox& box) const {
@@ -263,16 +195,6 @@ public:
         return true;
     }
 
-    /* dominate test for transform based algorithm */
-    bool Dominates(const int& dim, const double *other) {
-        int equal = true;
-        for (int i = 0; i < dim; ++ i) {
-            if (coord[i] > other[i]) return false;
-            else if (coord[i] < other[i]) equal = false;
-        }
-        return !equal;
-    }
-
     /* R-dominate test */
     bool RDominates(const InstanceBase& instance, const HyperBox& box) const {
         double sum = instance.coord[Dim - 1] - coord[Dim - 1];
@@ -281,6 +203,16 @@ public:
             else sum += (instance.coord[i] - coord[i])*box.right_top[i];
         }
         return sum >= 0;
+    }
+
+    /* dominate test for transform based algorithm */
+    bool Dominates(const int& dim, const double *other) {
+        int equal = true;
+        for (int i = 0; i < dim; ++ i) {
+            if (coord[i] > other[i]) return false;
+            else if (coord[i] < other[i]) equal = false;
+        }
+        return !equal;
     }
 
     void ToQueryPoints(const HyperBox& box, vector<double*> points) const {
