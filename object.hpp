@@ -28,33 +28,33 @@ inline double dot(double *u, double *v) {
 
 class HyperBox {
 public:
-    int d;
+    int dim;
     double *left_bottom, *right_top;
 
     HyperBox() {
         left_bottom = right_top = nullptr;
     }
 
-    HyperBox(const int& d) : d(d) {
-        left_bottom = new double[d];
-        right_top = new double[d];
+    HyperBox(const int& dim) : dim(dim) {
+        left_bottom = new double[dim];
+        right_top = new double[dim];
     }
 
-    HyperBox(const int& d, double* coord) {
-        this->d = d;
-        this->left_bottom = new double[d];
-        this->right_top = new double[d];
-        for (int i = 0; i < d; ++ i) {
+    HyperBox(const int& dim, double* coord) {
+        this->dim = dim;
+        this->left_bottom = new double[dim];
+        this->right_top = new double[dim];
+        for (int i = 0; i < dim; ++ i) {
             this->left_bottom[i] = coord[i];
             this->right_top[i] = coord[i];
         }
     }
 
-    HyperBox(const int& d, double* left_bottom, double* right_top) {
-        this->d = d;
-        this->left_bottom = new double[d];
-        this->right_top = new double[d];
-        for (int i = 0; i < d; ++ i) {
+    HyperBox(const int& dim, double* left_bottom, double* right_top) {
+        this->dim = dim;
+        this->left_bottom = new double[dim];
+        this->right_top = new double[dim];
+        for (int i = 0; i < dim; ++ i) {
             this->left_bottom[i] = left_bottom[i];
             this->right_top[i] = right_top[i];
         }
@@ -62,21 +62,21 @@ public:
 
     /* return 2^d vertices */
     void GetVertices(vector<double*>& vertices) const {
-        vertices.resize(int(pow(2, d)));
-        for (int i = 0; i < pow(2, d); ++ i) {
+        vertices.resize(int(pow(2, dim)));
+        for (int i = 0; i < pow(2, dim); ++ i) {
             int k = i;
-            vertices[i] = new double[d + 1];
-            for (int j = 0; j < d; ++ j) {
+            vertices[i] = new double[dim + 1];
+            for (int j = 0; j < dim; ++ j) {
                 vertices[i][j] = ((k>>j)&1) == 0 ? left_bottom[j] : right_top[j];
             }
-            vertices[i][d] = 1;
+            vertices[i][dim] = 1;
         }
     }
 
     /* MBR of two box */
     friend HyperBox operator +(const HyperBox& _boxa, const HyperBox& _boxb) {
-        HyperBox box(_boxa.d, _boxa.left_bottom, _boxa.right_top);
-        for (int i = 0; i < _boxa.d; ++ i) {
+        HyperBox box(_boxa.dim, _boxa.left_bottom, _boxa.right_top);
+        for (int i = 0; i < _boxa.dim; ++ i) {
             box.left_bottom[i] = min(box.left_bottom[i], _boxb.left_bottom[i]);
             box.right_top[i] = max(box.right_top[i], _boxb.right_top[i]);
         }
@@ -85,33 +85,54 @@ public:
 
     /* true : left_bottom == right_top */
     bool IsPoint() const {
-        for (int i = 0; i < d; ++ i) if (left_bottom[i] != right_top[i]) return false;
+        for (int i = 0; i < dim; ++ i) if (left_bottom[i] != right_top[i]) return false;
         return true;
     }
 
     /* true : right_top R-dominates instance */
     bool RDominates(const double* coord, const HyperBox& box) const {
-        double sum = coord[Dim - 1] - right_top[Dim - 1];
-        for (int i = 0; i < Dim - 1; ++ i) {
+        double sum = coord[dim - 1] - right_top[dim - 1];
+        for (int i = 0; i < dim - 1; ++ i) {
             if (coord[i] - right_top[i] > 0) sum += (coord[i] - right_top[i])*box.left_bottom[i];
             else sum += (coord[i] - right_top[i])*box.right_top[i];
         }
         return sum >= 0;
     }
 
+    HyperBox GetSubSpace(const int& k) const {
+        HyperBox box(dim);
+        for (int i = 0; i < dim; ++ i) {
+            box.left_bottom[i] = left_bottom[i] + (right_top[i] - left_bottom[i])/2*((k>>i)&1);
+            box.right_top[i] = box.left_bottom[i] + (right_top[i] - left_bottom[i])/2;
+        }
+        return box;
+    }
+
+    int PointLocation(const double* q_point, HyperBox& subspace) const {
+        int k = 0;
+        for (int i = 0; i < dim; ++ i) {
+            if (q_point[i] > left_bottom[i] + (right_top[i] - left_bottom[i])/2) {
+                k += (1<<i);
+                subspace.left_bottom[i] = left_bottom[i] + (right_top[i] - left_bottom[i])/2;
+            } else subspace.left_bottom[i] = left_bottom[i];
+            subspace.right_top[i] = subspace.left_bottom[i] + (right_top[i] - left_bottom[i])/2;
+        }
+        return k;
+    }
+
     friend ostream & operator <<(ostream& out, const HyperBox& box) {
         if (box.IsPoint()) {
             cout << "(";
-            for (int i = 0; i < box.d - 1; ++ i) cout << box.left_bottom[i] << ", ";
-            cout << box.left_bottom[box.d - 1] << ")";
+            for (int i = 0; i < box.dim - 1; ++ i) cout << box.left_bottom[i] << ", ";
+            cout << box.left_bottom[box.dim - 1] << ")";
             return out;
         }
         cout << "(";
-        for (int i = 0; i < box.d - 1; ++ i) cout << box.left_bottom[i] << ", ";
-        cout << box.left_bottom[box.d - 1] << ")\t";
+        for (int i = 0; i < box.dim - 1; ++ i) cout << box.left_bottom[i] << ", ";
+        cout << box.left_bottom[box.dim - 1] << ")\t";
         cout << "(";
-        for (int i = 0; i < box.d - 1; ++ i) cout << box.right_top[i] << ", ";
-        cout << box.right_top[box.d - 1] << ")";
+        for (int i = 0; i < box.dim - 1; ++ i) cout << box.right_top[i] << ", ";
+        cout << box.right_top[box.dim - 1] << ")";
         return out;
     }
 };
@@ -213,19 +234,6 @@ public:
             else if (coord[i] < other[i]) equal = false;
         }
         return !equal;
-    }
-
-    void ToQueryPoints(const HyperBox& box, vector<double*> points) const {
-        points.resize(int(pow(2, box.d)));
-        for (int i = 0; i < pow(2, box.d); ++ i) {
-            int k = i;
-            points[i] = new double[Dim];
-            points[i][Dim - 1] = -coord[Dim - 1];
-            for (int j = 0; j < box.d; ++ j) {
-                points[i][j] = ((k>>j)&1) == 0 ? -box.left_bottom[j] : -box.right_top[j];
-                points[i][Dim - 1] -= points[i][j]*coord[j];
-            }
-        }
     }
 };
 
