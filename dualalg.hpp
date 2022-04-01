@@ -18,7 +18,7 @@ class Dataset {
     QuadTree quadtree;
 
 public:
-    Dataset(const int& m, const int& c) : m(m), n(0), c(c) { objects.resize(m); quadtree = QuadTree(m); }
+    Dataset(const int& m, const int& c) : m(m), n(0), c(c) { objects.resize(m); }
 
     void LoadData(const char* path) {
         ifstream file((string(path) + to_string(m) + string("/cnt.data")).c_str(), ios::in);
@@ -54,7 +54,7 @@ public:
             }
         }
         // build multi-level tree structure
-        quadtree.Build(planes, space);
+        quadtree = QuadTree(m, planes, space);
     }
 
     void ShiftedDualPreprocessing() {
@@ -62,9 +62,7 @@ public:
     }
 
     void DualAlg(const HyperBox& R, map<int, double>& results) {
-        for (auto obj : objects)
-            for (int i = 0; i < obj.cnt; ++ i)
-                results[obj.instances[i].ins_id] = quadtree.CalProb(R, obj.instances[i]);
+        quadtree.CalProb(R);
         for (auto iter : results)
             if (iter.second != 0)
                 cout << "(" << iter.first << ", " << iter.second << ")\n";
