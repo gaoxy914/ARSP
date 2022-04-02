@@ -73,6 +73,15 @@ public:
         }
     }
 
+    /* return centroid of the box */
+    double* GetCentroid() const {
+        double *centroid = new double[dim];
+        for (int i = 0; i < dim; ++ i) {
+            centroid[i] = (left_bottom[i] + right_top[i])/2;
+        }
+        return centroid;
+    }
+
     /* MBR of two box */
     friend HyperBox operator +(const HyperBox& _boxa, const HyperBox& _boxb) {
         HyperBox box(_boxa.dim, _boxa.left_bottom, _boxa.right_top);
@@ -143,7 +152,7 @@ public:
     int obj_id;
     int ins_id;
     double prob;
-    double *coef; // w[1], ..., w[d]
+    double *coef; // w[1], ..., w[d], i in [0, d - 2] : w[i] = coord[i], w[d - 1] = -coord[d - 1]
 
     HyperPlane() : obj_id(-1), ins_id(-1), prob(0), coef(nullptr) {}
 
@@ -180,13 +189,27 @@ public:
         return max_value <= coef[Dim - 1];
     }
 
-    bool RDominates(const double* coord, const HyperBox& box) const {
-        double sum = coord[Dim - 1] + coef[Dim - 1];
+    bool RDominates(const HyperPlane& plane, const HyperBox& R) const {
+        double sum = -plane.coef[Dim - 1] + coef[Dim - 1];
         for (int i = 0; i < Dim; ++ i ) {
-            if (coord[i] > coef[i]) sum += (coord[i] - coef[i])*box.left_bottom[i];
-            else sum += (coord[i] - coef[i])*box.right_top[i];
+            if (plane.coef[i] > coef[i]) sum += (plane.coef[i] - coef[i])*R.left_bottom[i];
+            else sum += (plane.coef[i] - coef[i])*R.right_top[i];
         }
         return sum >= 0;
+    }
+
+    void GetQueryPoints(const HyperBox& R, vector<double*>& points) const {
+        vector<double*> vertices;
+        R.GetVertices(vertices);
+        points.reserve(vertices.size());
+        for (int i = 0; i < vertices.size(); ++ i) {
+            points[i] = new double[Dim];
+            points[i][Dim - 1] = coef[Dim - 1];
+            for (int j = 0; j < Dim - 1; ++ i) {
+                points[i][j] = -vertices[i][j];
+                points[i][Dim - 1] -= vertices[i][j]*coef[j];
+            }
+        }
     }
 };
 
