@@ -58,7 +58,6 @@ class KDTree {
         delete node;
     }
 
-    // info is formal parameter, undo only needed in the recursive call on node->left
     void CalSkyProbRecursive(const Node* node, Info info, map<int, double>& results) const {
         // update info
         vector<InstanceBase> instances_pv = info.cap_instances;
@@ -84,18 +83,8 @@ class KDTree {
             if (info.xi > 0) results[ins_id] = 0;
             else results[ins_id] = (1/points[index].prob)*info.beta*prob/(prob - info.sigma[obj_id]);
         } else {
-            if (node->left) {
-                // cout << "before recirsive: " << info.beta << '\t' << info.xi << '\t' << info.cap_instances.size() << endl;
-                // for (int i = 0; i < m; ++ i) cout << info.sigma[i] << '\t';
-                // cout << endl;
-                CalSkyProbRecursive(node->left, info, results);
-                // cout << "after recirsive: " << info.beta << '\t' << info.xi << '\t' << info.cap_instances.size() << endl;
-                // for (int i = 0; i < m; ++ i) cout << info.sigma[i] << '\t';
-                // cout << endl;
-            }
-            if (node->right) {
-                CalSkyProbRecursive(node->right, info, results);
-            }
+            if (node->left) CalSkyProbRecursive(node->left, info, results);
+            if (node->right) CalSkyProbRecursive(node->right, info, results);
         }
         for (auto ins : dominates_v) info.sigma[ins.obj_id] -= 1;
     }
