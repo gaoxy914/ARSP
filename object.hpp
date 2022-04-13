@@ -60,6 +60,16 @@ public:
         }
     }
 
+    HyperBox(const HyperBox& box) {
+        dim = box.dim;
+        left_bottom = new double[dim];
+        right_top = new double[dim];
+        for (int i = 0; i < dim; ++ i) {
+            left_bottom[i] = box.left_bottom[i];
+            right_top[i] = box.right_top[i];
+        }
+    }
+
     /* return 2^d vertices */
     void GetVertices(vector<double*>& vertices) const {
         vertices.resize(int(pow(2, dim)));
@@ -164,6 +174,14 @@ public:
         for (int i = 0; i < Dim; ++ i) this->coef[i] = coef[i];
     }
 
+    HyperPlane(const HyperPlane& plane) {
+        obj_id = plane.obj_id;
+        ins_id = plane.ins_id;
+        prob = plane.prob;
+        coef = new double[Dim];
+        for (int i = 0; i < Dim; ++ i) coef[i] = plane.coef[i];
+    }
+
     /*
      * object funciton : z = x[d] - w[1]x[1] - ... - w[d-1]x[d-1]
      * subject to : x[i] \in [region.l[i], region.r[i]] for i \in {1, ..., d}
@@ -228,6 +246,14 @@ public:
         this->prob = prob;
         this->coord = new double[Dim];
         for (int i = 0; i < Dim; ++i) this->coord[i] = coord[i];
+    }
+
+    InstanceBase(const InstanceBase& instance) {
+        obj_id = instance.obj_id;
+        ins_id = instance.ins_id;
+        prob = instance.prob;
+        coord = new double[Dim];
+        for (int i = 0; i < Dim; ++ i) coord[i] = instance.coord[i];
     }
 
     /* dominate test for loop based algorithm */
