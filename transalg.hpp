@@ -1,77 +1,68 @@
 #include "object.hpp"
 #include "kdtree.hpp"
 
-class Object {
-public:
-    int obj_id;
-    int cnt;
-    InstanceBase* instances;
-    
-    Object() : obj_id(-1), cnt(0), instances(nullptr) {}
-};
-
 class Dataset {
-    int m, n;
-    vector<Object> objects;
+    int dim, m, n;
+    vector<int> cnt;
+    vector<InstanceBase> instances;
 
 public:
-    Dataset(const int& m) {
-        n = 0;
-        this->m = m;
-        objects.resize(m);
+    Dataset(const int& dim, const int& m) : dim(dim), m(m), n(0) {
+        cnt.resize(m);
     }
 
-
     void LoadData(const char* path) {
-        ifstream file((string(path) + to_string(m) + string("/cnt.data")).c_str(), ios::in);
-        for (int i = 0; i < m; ++ i) { file >> objects[i].cnt; n += objects[i].cnt; }
+        ifstream file((string(path) + to_string(dim) + string("/") + to_string(m) + string("/cnt.data")).c_str(), ios::in);
+        for (int i = 0; i < m; ++ i) { file >> cnt[i]; n += cnt[i]; }
         file.close();
-        file.open((string(path) + to_string(m) + string("/instances.data")).c_str(), ios::in);
-        for (int i = 0; i < m; ++ i) {
-            objects[i].instances = new InstanceBase[objects[i].cnt];
-            for (int j = 0; j < objects[i].cnt; ++ j) {
-                file >> objects[i].instances[j].obj_id;
-                file >> objects[i].instances[j].ins_id;
-                file >> objects[i].instances[j].prob;
-                objects[i].instances[j].coord = new double[Dim];
-                for (int k = 0; k < Dim; ++ k) file >> objects[i].instances[j].coord[k];
-            }
+        instances.resize(n);
+        file.open((string(path) + to_string(dim) + string("/") + to_string(m) + string("/instances.data")).c_str(), ios::in);
+        for (int i = 0; i < n; ++ i) {
+            instances[i].dim = dim;
+            file >> instances[i].obj_id;
+            file >> instances[i].ins_id;
+            file >> instances[i].prob;
+            instances[i].coord = new double[dim];
+            for (int j = 0; j < dim; ++ j) file >> instances[i].coord[j];
         }
         file.close();
     }
 
     void PrintData() {
         cout << "m = " << m << "\t n = " << n << endl;
+        int s = 0;
         for (int i = 0; i < m; ++ i) {
-            cout << "obj " << i << "\t cnt = " << objects[i].cnt << endl;
-            for (int j = 0; j < objects[i].cnt; ++ j) {
-                cout << "id = " << objects[i].instances[j].ins_id << "\t (";
-                for (int k = 0; k < Dim - 1; ++ k) cout << objects[i].instances[j].coord[k] << ", ";
-                cout << objects[i].instances[j].coord[Dim - 1] << ")\t";
-                cout << "prob = " << 1/objects[i].instances[j].prob << endl;
+            cout << "obj " << i << "\t cnt = " << cnt[i] << endl;
+            for (int j = s; j < s + cnt[i]; ++ j) {
+                cout << "id = " << instances[j].ins_id << "\t (";
+                for (int k = 0; k < dim - 1; ++ k) cout << instances[j].coord[k] << ", ";
+                cout << instances[j].coord[dim - 1] << ")\t";
+                cout << "prob = " << 1/instances[j].prob << endl;
             }
         }
     }
 
     void TransAlg(const HyperBox& R, map<int, double>& results) {
-        vector<double*> vertices;
-        R.GetVertices(vertices);
-        int dim = vertices.size();
+        vector<vector<double>> vertices;
+        int new_dim = int(pow(2, dim));
+        vertices.resize(new_dim);
+        for (int i = 0; i < new_dim; ++ i) {
+            vertices[i].resize(dim);
+            for (int j = 0; j < dim - 1; ++ j) vertices[i][j] = ((i>>j)&1) == 0 ? R.left_bottom[j] : R.right_top[j];
+            vertices[i][dim - 1] = 1;
+        }
         vector<InstanceBase> new_instances;
-        new_instances.reserve(n);
-        for (auto obj : objects) {
-            for (int i = 0; i < obj.cnt; ++ i) {
-                InstanceBase cur_ins = obj.instances[i], new_ins;
-                new_ins.obj_id = cur_ins.obj_id;
-                new_ins.ins_id = cur_ins.ins_id;
-                new_ins.prob = cur_ins.prob;
-                new_ins.coord = new double[dim];
-                for (int j = 0; j < dim; ++ j) new_ins.coord[j] = dot(cur_ins.coord, vertices[j]);
-                new_instances.push_back(new_ins);
-            }
+        new_instances.resize(n);
+        for (int i = 0; i < n; ++ i) {
+            new_instances[i].dim = new_dim;
+            new_instances[i].obj_id = instances[i].obj_id;
+            new_instances[i].ins_id = instances[i].ins_id;
+            new_instances[i].prob = instances[i].prob;
+            new_instances[i].coord = new double[new_dim];
+            for (int j = 0; j < new_dim; ++ j) new_instances[i].coord[j] = instances[i].Score(vertices[j]);
         }
         // build kd-tree
-        KDTree kdtree(dim, m, new_instances);
+        KDTree kdtree(new_dim, m, new_instances);
         // cout << "built\n";
         // calculate skyline probability
         results = kdtree.CalSkyPorb();
@@ -83,17 +74,19 @@ public:
 };
 
 /*
- * ./trans path m
+ * ./trans path dim m
+ * dim: dimentionality
  * path: file path
  * m: number of uncertain tuples
  */
 int main(int argc, char const *argv[]) {
     map<int, double> results;
-    int m = atoi(argv[2]);
-    Dataset D(m);
-    double l[Dim - 1] = {1, 1};
-    double r[Dim - 1] = {2, 2};
-    HyperBox R(Dim - 1, l, r);
+    int dim = atoi(argv[2]);
+    int m = atoi(argv[3]);
+    Dataset D(dim, m);
+    double *l = new double[dim - 1], *r = new double[dim - 1];
+    l[0] = 1; l[1] = 1; r[0] = 2; r[1] = 2;
+    HyperBox R(dim - 1, l, r);
     D.LoadData(argv[1]);
     // D.PrintData();
 #ifdef _LINUX_
@@ -109,5 +102,7 @@ int main(int argc, char const *argv[]) {
     mtime = seconds*1000000 + useconds;
     printf("Total time is: %lld\n", mtime);
 #endif
+    delete[] l;
+    delete[] r;
     return 0;
 }

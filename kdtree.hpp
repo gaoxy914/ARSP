@@ -65,7 +65,7 @@ class KDTree {
         vector<int> instances_pv = info.cap_instances;
         vector<int> instances_v, dominates_v;
         for (auto ins : instances_pv) {
-            if (points[ins].Dominates(dim, node->R->left_bottom)) { // dominates region
+            if (points[ins].Dominates(node->R->left_bottom)) { // dominates region
                 dominates_v.push_back(ins);
                 if (info.sigma[points[ins].obj_id] + 1 == points[ins].prob) {
                     info.beta *= points[ins].prob;
@@ -75,7 +75,7 @@ class KDTree {
                     info.beta *= (points[ins].prob - info.sigma[points[ins].obj_id] - 1)/(points[ins].prob - info.sigma[points[ins].obj_id]);
                     info.sigma[points[ins].obj_id] += 1;
                 }
-            } else if (!node->R->IsPoint() && points[ins].Dominates(dim, node->R->right_top)) // intersects with region
+            } else if (!node->R->IsPoint() && points[ins].Dominates(node->R->right_top)) // intersects with region
                 instances_v.push_back(ins);
         }
         info.cap_instances = instances_v;
@@ -116,7 +116,6 @@ public:
         Info info;
         info.sigma = new int[m];
         memset(info.sigma, 0, m*sizeof(int));
-        // for (int i = 0; i < m; ++ i) info.sigma[i] = 0;
         info.beta = 1;
         info.xi = 0;
         // info.cap_instances = points;

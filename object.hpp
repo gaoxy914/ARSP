@@ -11,8 +11,15 @@
 #include <fstream>
 #include <map>
 #include <unordered_map>
+#include <stdlib.h>
+#include <stdio.h>
+#include <cstring>
 
-#define Dim 3 // data dimension
+#define _LINUX_
+
+#ifdef _LINUX_
+    #include <sys/time.h>
+#endif
 
 extern "C" {
     #include "glpk.h"
@@ -20,9 +27,9 @@ extern "C" {
 
 using namespace std;
 
-inline double dot(double *u, double *v) {
+inline double dot(const int& dim, const double *u, const double *v) {
     double sum = 0.0;
-    for (int i = 0; i < Dim; ++ i) sum += u[i]*v[i];
+    for (int i = 0; i < dim; ++ i) sum += u[i]*v[i];
     return sum;
 }
 
@@ -70,17 +77,9 @@ public:
         }
     }
 
-    /* return 2^d vertices */
-    void GetVertices(vector<double*>& vertices) const {
-        vertices.resize(int(pow(2, dim)));
-        for (int i = 0; i < pow(2, dim); ++ i) {
-            int k = i;
-            vertices[i] = new double[dim + 1];
-            for (int j = 0; j < dim; ++ j) {
-                vertices[i][j] = ((k>>j)&1) == 0 ? left_bottom[j] : right_top[j];
-            }
-            vertices[i][dim] = 1;
-        }
+    ~HyperBox() {
+        if (left_bottom) delete[] left_bottom;
+        if (right_top) delete[] right_top;
     }
 
     /* return centroid of the box */
@@ -100,6 +99,13 @@ public:
             box.right_top[i] = max(box.right_top[i], _boxb.right_top[i]);
         }
         return box;
+    }
+
+    void Merge(const double* coord) {
+        for (int i = 0; i < dim; ++ i) {
+            left_bottom[i] = min(coord[i], left_bottom[i]);
+            right_top[i] = max(coord[i], right_top[i]);
+        }
     }
 
     /* true : left_bottom == right_top */
@@ -159,6 +165,7 @@ public:
 /* format : x[d] = w[1]x[1] + ... + w[d-1]x[d-1] + w[d] */
 class HyperPlane {
 public:
+    int dim;
     int obj_id;
     int ins_id;
     double prob;
@@ -166,20 +173,25 @@ public:
 
     HyperPlane() : obj_id(-1), ins_id(-1), prob(0), coef(nullptr) {}
 
-    HyperPlane(const int& obj_id, const int& ins_id, const double& prob, const double* coef) {
+    HyperPlane(const int& dim, const int& obj_id, const int& ins_id, const double& prob, const double* coef) {
         this->obj_id = obj_id;
         this->ins_id = ins_id;
         this->prob = prob;
-        this->coef = new double[Dim];
-        for (int i = 0; i < Dim; ++ i) this->coef[i] = coef[i];
+        this->coef = new double[dim];
+        for (int i = 0; i < dim; ++ i) this->coef[i] = coef[i];
     }
 
     HyperPlane(const HyperPlane& plane) {
+        dim = plane.dim;
         obj_id = plane.obj_id;
         ins_id = plane.ins_id;
         prob = plane.prob;
-        coef = new double[Dim];
-        for (int i = 0; i < Dim; ++ i) coef[i] = plane.coef[i];
+        coef = new double[dim];
+        for (int i = 0; i < dim; ++ i) coef[i] = plane.coef[i];
+    }
+
+    ~HyperPlane() {
+        if (coef) delete[] coef;
     }
 
     /*
@@ -187,9 +199,9 @@ public:
      * subject to : x[i] \in [region.l[i], region.r[i]] for i \in {1, ..., d}
      */
     void CalExtremes(const HyperBox& region, double& max_value, double& min_value) const {
-        max_value = region.right_top[Dim - 1];
-        min_value = region.left_bottom[Dim - 1];
-        for (int i = 0; i < Dim - 1; ++ i) {
+        max_value = region.right_top[dim - 1];
+        min_value = region.left_bottom[dim - 1];
+        for (int i = 0; i < dim - 1; ++ i) {
             max_value -= coef[i] > 0 ? coef[i]*region.left_bottom[i] : coef[i]*region.right_top[i];
             min_value -= coef[i] > 0 ? coef[i]*region.right_top[i] : coef[i]*region.left_bottom[i];
         }
@@ -198,18 +210,18 @@ public:
     bool Intersect(const HyperBox& region) const {
         double max_value = 0, min_value = 0;
         CalExtremes(region, max_value, min_value);
-        return min_value < coef[Dim - 1] && max_value > coef[Dim - 1];
+        return min_value < coef[dim - 1] && max_value > coef[dim - 1];
     }
 
     bool Above(const HyperBox& region) const {
         double max_value = 0, min_value = 0;
         CalExtremes(region, max_value, min_value);
-        return max_value <= coef[Dim - 1];
+        return max_value <= coef[dim - 1];
     }
 
     bool RDominates(const HyperPlane& plane, const HyperBox& R) const {
-        double sum = -plane.coef[Dim - 1] + coef[Dim - 1];
-        for (int i = 0; i < Dim; ++ i ) {
+        double sum = -plane.coef[dim - 1] + coef[dim - 1];
+        for (int i = 0; i < dim; ++ i ) {
             if (plane.coef[i] > coef[i]) sum += (plane.coef[i] - coef[i])*R.left_bottom[i];
             else sum += (plane.coef[i] - coef[i])*R.right_top[i];
         }
@@ -218,14 +230,14 @@ public:
 
     void GetQueryPoints(const HyperBox& R, vector<double*>& points) const {
         vector<double*> vertices;
-        R.GetVertices(vertices);
+        // R.GetVertices(vertices);
         points.reserve(vertices.size());
         for (int i = 0; i < vertices.size(); ++ i) {
-            points[i] = new double[Dim];
-            points[i][Dim - 1] = coef[Dim - 1];
-            for (int j = 0; j < Dim - 1; ++ i) {
+            points[i] = new double[dim];
+            points[i][dim - 1] = coef[dim - 1];
+            for (int j = 0; j < dim - 1; ++ i) {
                 points[i][j] = -vertices[i][j];
-                points[i][Dim - 1] -= vertices[i][j]*coef[j];
+                points[i][dim - 1] -= vertices[i][j]*coef[j];
             }
         }
     }
@@ -233,6 +245,7 @@ public:
 
 class InstanceBase {
 public:
+    int dim;
     int obj_id;
     int ins_id;
     double prob; // precision concern, now for cnt in obj
@@ -240,26 +253,49 @@ public:
     
     InstanceBase() : obj_id(-1), ins_id(-1), prob(0), coord(nullptr) {}
 
-    InstanceBase(const int& obj_id, const int& ins_id, const double& prob, const double* coord) {
+    InstanceBase(const int& dim, const int& obj_id, const int& ins_id, const double& prob, const double* coord) {
+        this->dim = dim;
         this->obj_id = obj_id;
         this->ins_id = ins_id;
         this->prob = prob;
-        this->coord = new double[Dim];
-        for (int i = 0; i < Dim; ++i) this->coord[i] = coord[i];
+        this->coord = new double[dim];
+        for (int i = 0; i < dim; ++i) this->coord[i] = coord[i];
     }
 
     InstanceBase(const InstanceBase& instance) {
+        dim = instance.dim;
         obj_id = instance.obj_id;
         ins_id = instance.ins_id;
         prob = instance.prob;
-        coord = new double[Dim];
-        for (int i = 0; i < Dim; ++ i) coord[i] = instance.coord[i];
+        coord = new double[dim];
+        for (int i = 0; i < dim; ++ i) coord[i] = instance.coord[i];
+    }
+
+    InstanceBase& operator =(const InstanceBase& instance) {
+        if (&instance != this) {
+            dim = instance.dim;
+            obj_id = instance.obj_id;
+            ins_id = instance.ins_id;
+            prob = instance.prob;
+            for (int i = 0; i < dim; ++ i) coord[i] = instance.coord[i];
+        }
+        return *this;
+    }
+
+    ~InstanceBase() {
+        if (coord) delete[] coord;
+    }
+
+    double Score(const vector<double>& weight) const {
+        double sum = 0.0;
+        for (int i = 0; i < dim; ++ i) sum += weight[i]*coord[i];
+        return sum;
     }
 
     /* dominate test for loop based algorithm */
     bool Dominates(const InstanceBase& instance) const {
         if (ins_id == instance.ins_id) return false;
-        for (int i = 0; i < Dim; ++ i) {
+        for (int i = 0; i < dim; ++ i) {
             if (coord[i] > instance.coord[i]) return false;
         }
         return true;
@@ -267,8 +303,8 @@ public:
 
     /* R-dominate test */
     bool RDominates(const InstanceBase& instance, const HyperBox& box) const {
-        double sum = instance.coord[Dim - 1] - coord[Dim - 1];
-        for (int i = 0; i < Dim - 1; ++ i) {
+        double sum = instance.coord[dim - 1] - coord[dim - 1];
+        for (int i = 0; i < dim - 1; ++ i) {
             if (instance.coord[i] - coord[i] > 0) sum += (instance.coord[i] - coord[i])*box.left_bottom[i];
             else sum += (instance.coord[i] - coord[i])*box.right_top[i];
         }
@@ -276,11 +312,11 @@ public:
     }
 
     /* dominate test for transform based algorithm */
-    bool Dominates(const int& dim, const double *other) {
-        int equal = true;
+    bool Dominates(const double *point) const {
+        bool equal = true;
         for (int i = 0; i < dim; ++ i) {
-            if (coord[i] > other[i]) return false;
-            else if (coord[i] < other[i]) equal = false;
+            if (coord[i] > point[i]) return false;
+            else if (coord[i] < point[i]) equal = false;
         }
         return !equal;
     }
