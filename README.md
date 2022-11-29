@@ -1,6 +1,6 @@
 # ARSP
 
-This project require libaraies Qhull and glpk.
+This project require c++ libraries Qhull and glpk and python libraries nba_api, pandas, and numpy.
 
 ## File Description
 
