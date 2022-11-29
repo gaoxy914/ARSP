@@ -31,7 +31,7 @@ After compiling the src-arsp, run
 |p|percentage of objects with the empty instance|0.1, ...|
 |c|number of constraints|3,4,5,...|
 
-### generate F
+### generate the scoring function set F
 
 After compiling the src-arsp, run
 ```
@@ -60,5 +60,24 @@ After compiling the src-arsp, run
 
 ### run src-eclp
 
+After compiling the src-eclp, run
+```
+./main -dua-ms/-kdtree-star/ path dim m cnt l p
+```
+|Parameters|Meaning|Example|
+|:---:|---|:---:|
+|path|data path|data/inde/, data/anti/|
+|dim|data dimensionality|3, 4, ...|
+|m|number of uncertain objects|16000, ...|
+|cnt|number of instances per object|400, ...|
+|l|length of possible region of each object|0.2, ...|
+|p|percentage of objects with the empty instance|0.1, ...|
 
 ### run src-eclipse
+
+After compiling the src-eclipse, run `./main dim n` to compare DUAL-S with QUAD (the state-of-the-art for eclipse query processing.)
+
+|Parameters|Meaning|Example|
+|:---:|---|:---:|
+|dim|data dimensionality|3, 4, ...|
+|n|number of tuples|10000, ...|
