@@ -5,7 +5,7 @@ This project require libaraies Qhull and glpk.
 ## File Description
 
 |File|Description|
-|:---:|:---|
+|:---|:---|
 |nba_dataset.py|For getting nba dataset from https://www.nba.com/stats/.|
 |src-arsp|source code of algorithms for ARSP. All avaiable methods can be found in all_rsky_prob.h and region.h|
 |src-eclp|source code of algorihtms for ECLP. All avaiable methods can be found in all_ecl_prob.h|
