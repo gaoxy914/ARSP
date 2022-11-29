@@ -20,7 +20,7 @@ After compiling the src-arsp, run
 ./main -gendata path dim m cnt l p c
 ```
 |Parameters|Meaning|Example|
-|:---:|:---:|:---:|
+|:---:|:---|:---:|
 |path|data path|data/inde/, data/anti/|
 |dim|data dimensionality|3, 4, ...|
 |m|number of uncertain objects|16000, ...|
