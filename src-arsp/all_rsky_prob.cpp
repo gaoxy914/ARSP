@@ -27,7 +27,6 @@ void Dataset::_gen_inde_data() {
     double center[_dim], lower[_dim], upper[_dim];
     int start = 0;
     double length = 0;
-    // bool phi_flag = false;
     for (int i = 0; i < _m; ++ i) {
         for (int j = 0; j < _dim; ++ j)
             center[j] = _rand_uniform(0, 1);
@@ -38,9 +37,6 @@ void Dataset::_gen_inde_data() {
             lower[j] = center[j] - length/2 > 0 ? center[j] - length/2 : 0;
             upper[j] = center[j] + length/2 < 1 ? center[j] + length/2 : 1;
         }
-        // if (_rand_uniform(0, 1) < _phi_prob) {
-        //     phi_flag = true;
-        // }
         for (int j = start; j < start + _obj_cnt[i]; ++ j) {
             _data[j].m_obj_id = i;
             _data[j].m_id = j;
@@ -50,12 +46,6 @@ void Dataset::_gen_inde_data() {
             }
         }
         start += _obj_cnt[i];
-        /* if (phi_flag) { // add empty instance to object
-            for (int j = 0; j < _dim; ++ j) {
-                _data[start - 1].m_point.m_coord[j] = 1;
-            }
-        }
-        phi_flag = false; */
     }
 }
 
@@ -64,19 +54,8 @@ void Dataset::_gen_anti_data() {
     double center[_dim], lower[_dim], upper[_dim];
     int start = 0;
     double length = 0;
-    // bool phi_flag = false;
     for (int i = 0; i < _m; ++ i) {
-        /* do {
-            c = _rand_normal(0.5, 0.05);
-        } while (c >= 1 || c <= 0);
-        do {
-            center[_dim - 1] = _dim*c;
-            for (int j = 0; j < _dim - 1; ++ j) {
-                center[j] = _rand_uniform(0, 1);
-                center[_dim - 1] -= center[j];
-            }
-        } while (center[_dim - 1] < 0 || center[_dim - 1] > 1); */
-        center[_dim - 1] = 0.5*_dim + _rand_normal(0.5, 0.05);
+        center[_dim - 1] = 0.5*_dim + _rand_normal(0, 0.05);
         for (int j = 0; j < _dim - 1; ++ j) {
             center[j] = _rand_uniform(0, 1)*min(1.0, center[_dim - 1]);
             center[_dim - 1] -= center[j];
@@ -89,9 +68,6 @@ void Dataset::_gen_anti_data() {
             lower[j] = center[j] - length/2 > 0 ? center[j] - length/2 : 0;
             upper[j] = center[j] + length/2 < 1 ? center[j] + length/2 : 1;
         }
-        /* if (_rand_uniform(0, 1) < _phi_prob) {
-            phi_flag = true;
-        } */
         for (int j = start; j < start + _obj_cnt[i]; ++ j) {
             _data[j].m_obj_id = i;
             _data[j].m_id = j;
@@ -101,12 +77,6 @@ void Dataset::_gen_anti_data() {
             }
         }
         start += _obj_cnt[i];
-        /* if (phi_flag) { // add empty instance to object
-            for (int j = 0; j < _dim; ++ j) {
-                _data[start - 1].m_point.m_coord[j] = 1;
-            }
-        }
-        phi_flag = false; */
     } 
 }
 
@@ -115,18 +85,7 @@ void Dataset::_gen_corr_data() {
     double center[_dim], lower[_dim], upper[_dim];
     int start = 0;
     double length = 0;
-    // bool phi_flag = false;
     for (int i = 0; i < _m; ++ i) {
-        /* do {
-            c = _rand_normal(0.5, 0.05);
-        } while (c >= 1 || c <= 0);
-        do {
-            center[_dim - 1] = _dim*c;
-            for (int j = 0; j < _dim - 1; ++ j) {
-                center[j] = _rand_normal(c, 0.05);
-                center[_dim - 1] -= center[j];
-            }
-        } while (center[_dim - 1] < 0 || center[_dim - 1] > 1); */
         center[0] = _rand_uniform(0, 1);
         for (int j = 1; j < _dim; ++ j) {
             do {
@@ -140,9 +99,6 @@ void Dataset::_gen_corr_data() {
             lower[j] = center[j] - length/2 > 0 ? center[j] - length/2 : 0;
             upper[j] = center[j] + length/2 < 1 ? center[j] + length/2 : 1;
         }
-        /* if (_rand_uniform(0, 1) < _phi_prob) {
-            phi_flag = true;
-        } */
         for (int j = start; j < start + _obj_cnt[i]; ++ j) {
             _data[j].m_obj_id = i;
             _data[j].m_id = j;
@@ -152,12 +108,6 @@ void Dataset::_gen_corr_data() {
             }
         }
         start += _obj_cnt[i];
-        /* if (phi_flag) { // add empty instance to object
-            for (int j = 0; j < _dim; ++ j) {
-                _data[start - 1].m_point.m_coord[j] = 1;
-            }
-        }
-        phi_flag = false; */
     }
 }
 
@@ -190,7 +140,6 @@ Dataset::Dataset(const int& dim, const int& m, const int& cnt, const double& l, 
     _data = nullptr;
     _rtree = nullptr;
     _dpath_prefix = to_string(_dim) + "_" + to_string(_m) + "_" + to_string(_cnt);
-    // _dpath_prefix = to_string(_dim) + "_64000_" + to_string(_cnt);
     stringstream stream;
     stream << fixed << setprecision(1) << _l << "_" << fixed << setprecision(2) << _phi_prob;
     _dpath_prefix += "_" + stream.str();
@@ -310,6 +259,7 @@ void Dataset::load_nba_data() {
     _data = new Instance[_n];
     int obj_id = -1;
     int cnt = 0;
+    double temp;
     for (int i = 0; i < _n; ++ i) {
         if (i == cnt) {
             ++ obj_id;
@@ -318,8 +268,45 @@ void Dataset::load_nba_data() {
         _data[i].m_obj_id = obj_id;
         _data[i].m_id = i;
         _data[i].m_point = Point(_dim);
-        for (int j = 0; j < _dim; ++ j) {
-            file >> _data[i].m_point.m_coord[j];
+        for (int j = 0; j < 9; ++ j) {
+            if (j < _dim) file >> _data[i].m_point.m_coord[j];
+            else file >> temp;
+        }
+        id_pid[obj_id] = temp;
+    }
+    file.close();
+    // for (int i = 0; i < _n; ++ i) {
+    //     cout << _data[i] << endl;
+    // }
+}
+
+void Dataset::load_car_data() {
+    ifstream file("data/car.cnt", ios::in);
+    if (!file.is_open()) {
+        printf("Fail in loading data.\n");
+        exit(1);
+    }
+    for (int i = 0; i < _m; ++ i) {
+        file >> _obj_cnt[i];
+        _n += _obj_cnt[i];
+    }
+    file.close();
+    file.open("data/car.data", ios::in);
+    _data = new Instance[_n];
+    int obj_id = -1;
+    int cnt = 0;
+    double temp;
+    for (int i = 0; i < _n; ++ i) {
+        if (i == cnt) {
+            ++ obj_id;
+            cnt += _obj_cnt[obj_id];
+        }
+        _data[i].m_obj_id = obj_id;
+        _data[i].m_id = i;
+        _data[i].m_point = Point(_dim);
+        for (int j = 0; j < 4; ++ j) {
+            if (j < _dim) file >> _data[i].m_point.m_coord[j];
+            else file >> temp;
         }
     }
     file.close();
@@ -327,6 +314,42 @@ void Dataset::load_nba_data() {
     //     cout << _data[i] << endl;
     // }
 }
+
+void Dataset::load_iip_data() {
+    ifstream file("data/iip.cnt", ios::in);
+    if (!file.is_open()) {
+        printf("Fail in loading data.\n");
+        exit(1);
+    }
+    for (int i = 0; i < _m; ++ i) {
+        file >> _obj_cnt[i];
+        _n += _obj_cnt[i];
+    }
+    file.close();
+    file.open("data/iip.data", ios::in);
+    _data = new Instance[_n];
+    int obj_id = -1;
+    int cnt = 0;
+    double temp;
+    for (int i = 0; i < _n; ++ i) {
+        if (i == cnt) {
+            ++ obj_id;
+            cnt += _obj_cnt[obj_id];
+        }
+        _data[i].m_obj_id = obj_id;
+        _data[i].m_id = i;
+        _data[i].m_point = Point(_dim);
+        for (int j = 0; j < 2; ++ j) {
+            if (j < _dim) file >> _data[i].m_point.m_coord[j];
+            else file >> temp;
+        }
+    }
+    file.close();
+    // for (int i = 0; i < _n; ++ i) {
+    //     cout << _data[i] << endl;
+    // }
+}
+
 
 void Dataset::build_rtree() {
     _rtree = new RTree(_dim);
@@ -418,26 +441,123 @@ void Dataset::gen_data_vary_m(const char* path, const int& type) {
     write_data(path);
 }
 
+void Dataset::gen_data_vary_l(const char* path, const int& type) {
+    for (int i = 0; i < _m; ++ i) {
+        _obj_cnt[i] = rand()%_cnt + 1;
+        _n += _obj_cnt[i];
+    }
+
+    double c = 0;
+    double center[_m][_dim];
+    double lower[_dim], upper[_dim];
+    int start = 0;
+    double length = 0;
+    
+    _data = new Instance[_n];
+    switch (type) {
+    case 1:
+        for (int i = 0; i < _m; ++ i) {
+            for (int j = 0; j < _dim; ++ j)
+                center[i][j] = _rand_uniform(0, 1);
+        }
+        break;
+    case 2:
+        for (int i = 0; i < _m; ++ i) {
+            center[i][_dim - 1] = 0.5*_dim + _rand_normal(0.5, 0.05);
+            for (int j = 0; j < _dim - 1; ++ j) {
+                center[i][j] = _rand_uniform(0, 1)*min(1.0, center[i][_dim - 1]);
+                center[i][_dim - 1] -= center[i][j];
+            }
+            if (center[i][_dim - 1] > 1) center[i][_dim - 1] = 1;
+        }
+        break;
+    case 3:
+        for (int i = 0; i < _m; ++ i) {
+            center[i][0] = _rand_uniform(0, 1);
+            for (int j = 1; j < _dim; ++ j) {
+                do {
+                    center[i][j] = _rand_normal(center[i][0], 0.05);
+                } while (center[i][j] < 0 || center[i][j] > 1);
+            }
+        }
+        break;
+    default:
+        break;
+    }
+
+    for (double l = 0.1; l <= 0.6; l += 0.1) {
+        for (int i = 0; i < _m; ++ i) {
+            for (int j = 0; j < _dim; ++ j) {
+                do { 
+                    length = _rand_normal(_l/2.0, _l/8.0);
+                } while (length > _l || length <= 0);
+                lower[j] = center[i][j] - length/2 > 0 ? center[i][j] - length/2 : 0;
+                upper[j] = center[i][j] + length/2 < 1 ? center[i][j] + length/2 : 1;
+            }
+            for (int j = start; j < start + _obj_cnt[i]; ++ j) {
+                _data[j].m_obj_id = i;
+                _data[j].m_id = j;
+                _data[j].m_point = Point(_dim);
+                for (int k = 0; k < _dim; ++ k) {
+                    _data[j].m_point.m_coord[k] = _rand_uniform(lower[k], upper[k]);
+                }
+            }
+            start += _obj_cnt[i];
+        }
+        _dpath_prefix = to_string(_dim) + "_" + to_string(_m) + "_" + to_string(_cnt);
+        stringstream stream;
+        stream << fixed << setprecision(1) << l << "_" << fixed << setprecision(2) << _phi_prob;
+        _dpath_prefix += "_" + stream.str();
+        ofstream file((string(path) + _dpath_prefix + string(".cnt")).c_str(), ios::out);
+        for (int i = 0; i < _m; ++ i) {
+            file << _obj_cnt[i] << " ";
+        }
+        file.close();
+        file.open((string(path) + _dpath_prefix + string(".data")).c_str(), ios::out);
+        for (int i = 0; i < _n; ++ i) {
+            file << _data[i].m_obj_id << " ";
+            file << _data[i].m_id << " ";
+            for (int j = 0; j < _dim; ++ j) {
+                file << _data[i].m_point[j] << " ";
+            }
+        }
+        file.close();
+    }
+}
+
 void Dataset::aggregate_rskyline(Region& weights, vector<int>& result) {
     Instance *mean_data = new Instance[_m];
+    Instance *var = new Instance[_m];
     int start = 0;
     for (int i = 0; i < _m; ++ i) {
         mean_data[i].m_id = i;
+        mean_data[i].m_obj_id = id_pid[i];
         mean_data[i].m_point = Point(_dim);
         for (int j = start; j < start + _obj_cnt[i]; ++ j) {
             for (int k = 0; k < _dim; ++ k) {
                 mean_data[i].m_point.m_coord[k] += _data[j].m_point[k];
             }
         }
+        var[i].m_point = Point(_dim);
         for (int k = 0; k < _dim; ++ k) {
             mean_data[i].m_point.m_coord[k] /= _obj_cnt[i];
+            var[i].m_point.m_coord[k] = 0;
+        }
+        for (int j = start; j < start + _obj_cnt[i]; ++ j) {
+            for (int k = 0; k < _dim; ++ k) {
+                var[i].m_point.m_coord[k] += pow(_data[j].m_point[k] - mean_data[i].m_point[k], 2);
+            }
+        }
+        for (int k = 0; k < _dim; ++ k) {
+            var[i].m_point.m_coord[k] /= _obj_cnt[i];
         }
         start += _obj_cnt[i];
     }
     cout << "compute aggregate value\n";
-    for (int i = 0; i < _m; ++ i) {
+    /* for (int i = 0; i < _m; ++ i) {
         cout << mean_data[i] << endl;
-    }
+        cout << var[i] << endl;
+    } */
     vector<int> rsky_index;
     bool in_rsky;
     weights.compute_vertex();
@@ -456,7 +576,7 @@ void Dataset::aggregate_rskyline(Region& weights, vector<int>& result) {
     }
     cout << rsky_index.size() << endl;
     for (auto index : rsky_index) {
-        result.push_back(mean_data[index].m_id);
+        result.push_back(id_pid[mean_data[index].m_id]);
     }
 }
 
@@ -505,9 +625,68 @@ void Dataset::kdtree_traverse_star_larger(Region& weights, unordered_map<int, do
     weights.compute_vertex();
     KDTree kdtree(weights.get_vertex_size());
     kdtree.load_data(_n, _data, &weights);
-    kdtree.mix_sky_prob_larger(_m, _obj_cnt, result);
+    unordered_map<int, double> ins_rsky;
+    kdtree.mix_sky_prob_larger(_m, _obj_cnt, ins_rsky);
+    for (int i = 0; i < _n; ++ i) {
+        if (ins_rsky.find(_data[i].m_id) != ins_rsky.end()) {
+            result[id_pid[_data[i].m_obj_id]] += ins_rsky[_data[i].m_id];
+        }
+    }
 }
 
+void Dataset::enumerate(Region& weights, unordered_map<int, double>& result) {
+    weights.compute_vertex();
+    vector<int> pw(_m, 0);
+    unordered_map<int, int> cnt;
+    _start = new int[_m];
+    _start[0] = 0;
+    for (int i = 1; i < _m ; ++ i) {
+        _start[i] = _start[i - 1] + _obj_cnt[i - 1];
+    }
+    enum_rec(weights, pw, 0, cnt);
+    /* long long nPW = 1;
+    for (int i = 0; i < _m; ++ i) {
+        nPW *= _obj_cnt[i];
+    } */
+    for (auto iter : cnt) {
+        result[iter.first] = iter.second;
+    }
+    delete[] _start;
+}
+
+void Dataset::enum_rec(Region& weights, vector<int>& pw, int depth, unordered_map<int, int>& cnt) {
+    if (depth == _m) {
+        Instance *pw_data = new Instance[_m];
+        for (int i = 0; i < _m; ++ i) {
+            pw_data[i] = _data[pw[i]];
+        }
+        sort(pw_data, pw_data + _m, Instance::Comparator(weights.get_inner()));
+        vector<int> rsky_index;
+        bool in_rsky;
+        for (int i = 0; i < _m; ++ i) {
+            in_rsky = true;
+            for (auto index : rsky_index) {
+                if (pw_data[index].fdominate_V(pw_data[i], weights.get_vertex())) {
+                    in_rsky = false;
+                    break;
+                }
+            }
+            if (in_rsky == true) {
+                rsky_index.push_back(i);
+            }
+        }
+        for (auto index : rsky_index) {
+            ++ cnt[pw_data[index].m_id];
+        }
+        delete[] pw_data;
+    } else if (depth < _m) {
+        for (int i = 0; i < _obj_cnt[depth]; ++ i) {
+            pw[depth] = _start[depth] + i;
+            enum_rec(weights, pw, depth + 1, cnt);
+            // pw.pop_back();
+        }
+    }
+}
 
 void Dataset::baseline_LP(Region& weights, unordered_map<int, double>& result) {
     weights.build_lp();
@@ -796,6 +975,7 @@ void Dataset::branch_bound_trans_on_the_fly(Region& weights, unordered_map<int, 
                 ++ candidate_P[obj_id].first;
                 if (candidate_P[obj_id].first == _obj_cnt[obj_id]) {
                     P.push_back(candidate_P[obj_id].second);
+                    // cout << P.size() << endl;
                 }
 //                }
             } else if (node->second > 0) {
