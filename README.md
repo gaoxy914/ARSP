@@ -6,7 +6,9 @@ This project require c++ libraries Qhull and glpk and python libraries nba_api, 
 
 |File|Description|
 |:---|:---|
-|nba_dataset.py|For getting nba dataset from https://www.nba.com/stats/.|
+|IIP.py|Generating IIP from iip_98_2000.txt|
+|CAR.py|Generating CAR from autos.csv|
+|NBA.py|For getting nba dataset from https://www.nba.com/stats/.|
 |src-arsp|source code of algorithms for ARSP. All avaiable methods can be found in all_rsky_prob.h and region.h|
 |src-eclp|source code of algorihtms for ECLP. All avaiable methods can be found in all_ecl_prob.h|
 |src-eclipse|source code of algorithms for ECLIPSE. All avaiable methods can be found in eclipse.h|
@@ -52,7 +54,7 @@ After compiling the src-arsp, run
 
 After compiling the src-arsp, run
 ```
-./main -baseline-V/-branchbound/-kdtree/-kdtree-star/-quadtree-star path dim m cnt l p c
+./main -enum/-baseline-V/-branchbound/-kdtree/-kdtree-star/-quadtree-star path dim m cnt l p c
 ```
 |Parameters|Meaning|Example|
 |:---:|---|:---:|
